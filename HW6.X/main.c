@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include<xc.h>           // processor SFR definitions
 #include<sys/attribs.h>  // __ISR macro
+#include <math.h>
+#include "i2c_master_noint.H"
 
 // DEVCFG0
 #pragma config DEBUG = OFF // disable debugging
@@ -36,6 +38,15 @@
 // Function prototypes
 void readUART1(char * string, int maxLength);
 void writeUART1(const char * string);
+unsigned short make16(char a_or_b, unsigned char v);
+void blink();
+void mcp23008_write(unsigned char ad, unsigned char reg, unsigned char val);
+unsigned char  mcp23008_read(unsigned char ad, unsigned char reg);
+
+#define ADRESS 0b01000000
+#define IODIR 0x00
+#define GPIO 0x09
+#define OLAT 0x0A
 
 int main() {
 
@@ -75,13 +86,35 @@ int main() {
     // enable the uart
     U1MODEbits.ON = 1;
 
-    __builtin_enable_interrupts();
+    
+    // HW6
+    // turn on i2c
+    i2c_master_setup();
+    // init the mcp23008 with pg7 as out and gp0 as in
+
+    mcp23008_write(ADRESS, IODIR , 0b01111111);
+    
+    // turn on gp7
+    mcp23008_write(ADRESS, OLAT, 0b10000000);
+    
+    // read what pin are on
+    unsigned char r = mcp23008_read(ADRESS, GPIO);
+    
+    // if gp0 is 0, turn on the led
+    // r = 0b01XXXXXX
+    //     0b00000001
+    if ((r>>1) & 0b1 == 0b1){
+        mcp23008_write(ADRESS, OLAT, 0b00000000);
+    }
+    
     
     char m[100];
+    int t;
+    sscanf(m,"%d",&t);
     
-    // initialize SPI
-    init_spi();
-
+    
+    __builtin_enable_interrupts();
+    
     while (1) {
         // use _CP0_SET_COUNT(0) and _CP0_GET_COUNT() to test the PIC timing
         // remember the core timer runs at half the sysclk
@@ -102,44 +135,13 @@ int main() {
             while (_CP0_GET_COUNT() < 12000000){
                 LATAbits.LATA4 = 0; // off for 0.5s
             }
-            int num = (rand() % (1 - 0 + 1)) + lower;
-            if num>0.5{
-                sprintf(m,"Yes!\r\n");
-                writeUART1(m);
-            }
-            else{
-                sprintf(m,"No!\r\n");
-                writeUART1(m);
-            }
-            // sprintf(m,"Hello!\r\n");
-            // writeUART1(m);
-            
+            sprintf(m,"Hello!\r\n");
+            writeUART1(m);
+          
             //terminal window   -   ls /dev/tty.* 
             //screen /dev/tty.usbserial-0232B0A1 230400 
 
-            // pick the voltage for sine and tri waves, an unsigned 8 bit number
-            unsigned char q = t*; 
-            // turn the voltage into a unsigned 16 bit number
-            // 1st bit: A/B, next 3: 111, next 8 bits: voltage, last 4: don't matter
-            unsigned short make16(1, q )
-            // send the sine wave by:
-            // make cs low
-            LATA0bit.LAT
-            // send 8 bits
-            spi_io(s>>8);
-            // send 8 bits
-            spi_io(s & 0xff);
-            // make cs high
-            CS = 1;
-             
-            // send the tri wave:
-            // make cs low
-            // send 8 bits
-            // send 8 bits
-            // make cs high
-
-            //delay:
-            t = t+0.1;
+            
         }
     }
 
@@ -190,4 +192,30 @@ unsigned short make16(char a_or_b, unsigned char v){
   s = s | (0b111<<12);
   s = s | (v << 4);
   return s;
+}
+
+
+void mcp23008_write(unsigned char ad, unsigned char reg, unsigned char val){
+    // send start bit
+    // send the address with write bit
+    // send the name of the register to change IODIR
+    // send 8 bits for IO
+    // send stop bit
+    i2c_master_start();
+    i2c_master_send(ad<<1);
+    i2c_master_send(reg);
+    i2c_master_send(val);
+    i2c_master_stop();
+}
+
+
+unsigned char  mcp23008_read(unsigned char ad, unsigned char reg){
+    i2c_master_start();
+    i2c_master_send(ad<<1); //write
+    i2c_master_send(reg);
+    i2c_master_restart();
+    i2c_master_send(ad<<1 | 0b1); //read
+    unsigned char r = i2c_master_recv();
+    i2c_master_ack(1); //done
+    i2c_master_stop();
 }
