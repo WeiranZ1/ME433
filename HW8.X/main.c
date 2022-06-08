@@ -130,7 +130,8 @@ void ReadUART1(char * message, int maxLength) {
 void WriteUART1(const char * string) {
   while (*string != '\0') {
     while (U1STAbits.UTXBF) {
-      ; // wait until tx buffer isn't full
+      
+        ; // wait until tx buffer isn't full
     }
     U1TXREG = *string;
     ++string;
