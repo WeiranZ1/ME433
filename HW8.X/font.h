@@ -2,7 +2,6 @@
 #define FONT_H__
 
 #include "ssd1306.h"
-#define DX 5
 
 
 // make these functions:
@@ -113,8 +112,7 @@ void drawChar(unsigned char x, unsigned char y, char letter) {
     int table_index = ((int) letter) - 32;
     for (unsigned char i = 0; i < 5; i++) {
         for (unsigned char j = 0; j < 8; j++) {
-            unsigned char color = !!((0b1 << j) & ASCII[table_index][i]);
-            ssd1306_drawPixel(x+i, y+j, color);
+            ssd1306_drawPixel(x+i, y+j, !!((0b1 << j) & ASCII[table_index][i]));    // color
         }
     }
 }
@@ -123,7 +121,7 @@ void drawString(unsigned char x, unsigned char y, char* string) {
     int i = 0;
     while (*(string + i) != '\0') {
         drawChar(x, y, *(string + i));
-        x += DX;
+        x += 5;
         if (x > 128) {
             break;
         }
